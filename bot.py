@@ -8,13 +8,17 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 bot = Bot(token=TOKEN)
 
-# categorias populares
-CATEGORIAS = [
-    "MLB1000",  # eletrônicos
-    "MLB1055",  # celulares
-    "MLB1648",  # informática
-    "MLB1574",  # casa
-    "MLB1276",  # esportes
+BUSCAS = [
+    "notebook",
+    "iphone",
+    "smartphone",
+    "air fryer",
+    "tv",
+    "monitor",
+    "ssd",
+    "fone bluetooth",
+    "cadeira gamer",
+    "mouse gamer",
 ]
 
 produtos_enviados = set()
@@ -24,16 +28,22 @@ def buscar_ofertas():
 
     ofertas = []
 
-    for cat in CATEGORIAS:
+    for busca in BUSCAS:
 
-        url = f"https://api.mercadolibre.com/sites/MLB/search?category={cat}&limit=50"
+        url = f"https://api.mercadolibre.com/sites/MLB/search?q={busca}&limit=50"
 
         try:
-            data = requests.get(url).json()
-        except:
+            res = requests.get(url)
+            data = res.json()
+        except Exception as e:
+            print("Erro na API:", e)
             continue
 
-        for item in data.get("results", []):
+        resultados = data.get("results", [])
+
+        print(f"{busca}: {len(resultados)} produtos encontrados")
+
+        for item in resultados:
 
             preco = item.get("price")
             original = item.get("original_price")
@@ -46,7 +56,7 @@ def buscar_ofertas():
 
             desconto = int((original - preco) / original * 100)
 
-            if desconto < 35:
+            if desconto < 20:
                 continue
 
             link = item.get("permalink")
@@ -65,6 +75,8 @@ def buscar_ofertas():
                 "img": item.get("thumbnail")
             })
 
+    print("Ofertas encontradas:", len(ofertas))
+
     return ofertas[:10]
 
 
@@ -72,8 +84,8 @@ async def enviar(ofertas):
 
     for o in ofertas:
 
-        msg = f"""
-🔥 OFERTA
+        mensagem = f"""
+🔥 OFERTA ENCONTRADA
 
 {o['titulo']}
 
@@ -89,33 +101,45 @@ async def enviar(ofertas):
             await bot.send_photo(
                 chat_id=CHAT_ID,
                 photo=o["img"],
-                caption=msg
+                caption=mensagem
             )
 
             await asyncio.sleep(2)
 
         except Exception as e:
-            print("Erro:", e)
+            print("Erro ao enviar:", e)
 
 
-async def loop():
+async def executar():
+
+    print("Buscando ofertas...")
+
+    ofertas = buscar_ofertas()
+
+    if ofertas:
+        await enviar(ofertas)
+    else:
+        print("Nenhuma oferta encontrada")
+
+
+async def main():
+
+    # mensagem de teste
+    try:
+        await bot.send_message(
+            chat_id=CHAT_ID,
+            text="🤖 Bot de ofertas iniciado com sucesso!"
+        )
+    except Exception as e:
+        print("Erro ao enviar mensagem inicial:", e)
 
     while True:
 
-        print("Buscando ofertas...")
-
-        ofertas = buscar_ofertas()
-
-        if ofertas:
-            await enviar(ofertas)
+        await executar()
 
         print("Aguardando 15 minutos...")
 
         await asyncio.sleep(900)
-
-
-async def main():
-    await loop()
 
 
 if __name__ == "__main__":
