@@ -1,38 +1,71 @@
 import requests
 import os
-import time
-from telegram import Bot
 import asyncio
+from telegram import Bot
 
-TOKEN = os.getenv("8583131498:AAESbJgz-fC4SyC7VZbjeB120yHcyT6ANZI")
-CHAT_ID = os.getenv("-1003642280454")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 bot = Bot(token=TOKEN)
 
+# categorias populares
+CATEGORIAS = [
+    "MLB1000",  # eletrônicos
+    "MLB1055",  # celulares
+    "MLB1648",  # informática
+    "MLB1574",  # casa
+    "MLB1276",  # esportes
+]
+
+produtos_enviados = set()
+
+
 def buscar_ofertas():
-    url = "https://api.mercadolibre.com/sites/MLB/search?q=notebook"
-    res = requests.get(url).json()
 
     ofertas = []
 
-    for item in res["results"]:
-        preco = item["price"]
-        original = item.get("original_price")
+    for cat in CATEGORIAS:
 
-        if original and original > preco:
+        url = f"https://api.mercadolibre.com/sites/MLB/search?category={cat}&limit=50"
+
+        try:
+            data = requests.get(url).json()
+        except:
+            continue
+
+        for item in data.get("results", []):
+
+            preco = item.get("price")
+            original = item.get("original_price")
+
+            if not original:
+                continue
+
+            if original <= preco:
+                continue
+
             desconto = int((original - preco) / original * 100)
 
-            if desconto >= 30:
-                ofertas.append({
-                    "titulo": item["title"],
-                    "preco": preco,
-                    "original": original,
-                    "desconto": desconto,
-                    "link": item["permalink"],
-                    "img": item["thumbnail"]
-                })
+            if desconto < 35:
+                continue
 
-    return ofertas[:5]
+            link = item.get("permalink")
+
+            if link in produtos_enviados:
+                continue
+
+            produtos_enviados.add(link)
+
+            ofertas.append({
+                "titulo": item.get("title"),
+                "preco": preco,
+                "original": original,
+                "desconto": desconto,
+                "link": link,
+                "img": item.get("thumbnail")
+            })
+
+    return ofertas[:10]
 
 
 async def enviar(ofertas):
@@ -51,77 +84,39 @@ async def enviar(ofertas):
 🛒 {o['link']}
 """
 
-        await bot.send_photo(
-            chat_id=CHAT_ID,
-            photo=o["img"],
-            caption=msg
-        )
+        try:
+
+            await bot.send_photo(
+                chat_id=CHAT_ID,
+                photo=o["img"],
+                caption=msg
+            )
+
+            await asyncio.sleep(2)
+
+        except Exception as e:
+            print("Erro:", e)
+
+
+async def loop():
+
+    while True:
+
+        print("Buscando ofertas...")
+
+        ofertas = buscar_ofertas()
+
+        if ofertas:
+            await enviar(ofertas)
+
+        print("Aguardando 15 minutos...")
+
+        await asyncio.sleep(900)
 
 
 async def main():
-    ofertas = buscar_ofertas()
-    await enviar(ofertas)
-
-
-while True:
-    asyncio.run(main())
-    time.sleep(900)
-bot = Bot(token=TOKEN)
-
-def buscar_ofertas():
-    url = "https://api.mercadolibre.com/sites/MLB/search?q=eletronicos"
-
-    res = requests.get(url).json()
-
-    ofertas = []
-
-    for item in res["results"]:
-        preco = item["price"]
-        original = item.get("original_price")
-
-        if original and original > preco:
-            desconto = round((original - preco) / original * 100)
-
-            if desconto >= 30:
-                ofertas.append({
-                    "titulo": item["title"],
-                    "preco": preco,
-                    "original": original,
-                    "desconto": desconto,
-                    "link": item["permalink"],
-                    "imagem": item["thumbnail"]
-                })
-
-    return ofertas[:5]
-
-
-def enviar_telegram(ofertas):
-    for o in ofertas:
-
-        mensagem = f"""
-🔥 OFERTA ENCONTRADA
-
-{ o['titulo'] }
-
-💰 R$ {o['preco']}
-🏷️ De: R$ {o['original']}
-📉 Desconto: {o['desconto']}%
-
-🛒 Comprar:
-{o['link']}
-"""
-
-        bot.send_photo(
-            chat_id=CHAT_ID,
-            photo=o["imagem"],
-            caption=mensagem
-        )
-
-
-def main():
-    ofertas = buscar_ofertas()
-    enviar_telegram(ofertas)
+    await loop()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
