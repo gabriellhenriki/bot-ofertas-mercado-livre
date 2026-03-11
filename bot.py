@@ -5,7 +5,7 @@ from telegram import Bot
 import asyncio
 
 TOKEN = os.getenv("8583131498:AAESbJgz-fC4SyC7VZbjeB120yHcyT6ANZI")
-CHAT_ID = os.getenv("1003642280454")
+CHAT_ID = os.getenv("-1003642280454")
 
 bot = Bot(token=TOKEN)
 
