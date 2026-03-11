@@ -28,13 +28,22 @@ def buscar_ofertas():
 
     ofertas = []
 
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
     for busca in BUSCAS:
 
         url = f"https://api.mercadolibre.com/sites/MLB/search?q={busca}&limit=50"
 
         try:
-            res = requests.get(url)
+
+            res = requests.get(url, headers=headers, timeout=10)
+
+            print("Status:", res.status_code)
+
             data = res.json()
+
         except Exception as e:
             print("Erro na API:", e)
             continue
@@ -124,11 +133,10 @@ async def executar():
 
 async def main():
 
-    # mensagem de teste
     try:
         await bot.send_message(
             chat_id=CHAT_ID,
-            text="🤖 Bot de ofertas iniciado com sucesso!"
+            text="🤖 Bot de ofertas iniciado!"
         )
     except Exception as e:
         print("Erro ao enviar mensagem inicial:", e)
